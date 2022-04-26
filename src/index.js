@@ -4,9 +4,11 @@ const getChangedFiles = require("get-changed-files");
 const { uniq, forEach } = require("lodash");
 const fs = require("fs");
 
+const pathToGit = "/<your_project_path_here>";
+
 getChangedFiles({
   mainBranch: "main",
-  basePath: "/<project path here>",
+  basePath: pathToGit,
 }).then((results) => {
   const changedFiles = uniq(results.changed);
 
@@ -26,7 +28,7 @@ getChangedFiles({
 
   content = content + ");";
 
-  fs.writeFile("./manifest.php", content, (err) => {
+  fs.writeFile(pathToGit + "/manifest.php", content, (err) => {
     if (err) {
       console.error(err);
       return;
