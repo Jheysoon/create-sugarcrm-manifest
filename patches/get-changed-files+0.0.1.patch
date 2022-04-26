@@ -1,0 +1,107 @@
+diff --git a/node_modules/get-changed-files/git.js b/node_modules/get-changed-files/git.js
+index d8dc355..06667d1 100644
+--- a/node_modules/get-changed-files/git.js
++++ b/node_modules/get-changed-files/git.js
+@@ -24,57 +24,57 @@ async function getDiffPoint(
+   return lastMerge ? { merge: lastMerge } : { commit: mainBranch };
+ }
+ 
+-async function getCurrentBranch() {
+-  return exec("git rev-parse --abbrev-ref HEAD");
++async function getCurrentBranch(basePath) {
++  return exec(`cd ${basePath} && git rev-parse --abbrev-ref HEAD`);
+ }
+ 
+-async function getChangedFromMerge({ merge } /*: { merge: string } */) {
+-  return (await exec(`git log ${merge}^..${merge} --name-only --format=""`))
++async function getChangedFromMerge({ merge, basePath } /*: { merge: string } */) {
++  return (await exec(`cd ${basePath} && git log ${merge}^..${merge} --name-only --format=""`))
+     .split("\n")
+     .filter(file => !!file);
+ }
+ 
+-async function getCachedChangedSince({ commit } /*: { commit: string } */) {
+-  return (await exec(`git diff --cached --name-only ${commit}`))
++async function getCachedChangedSince({ commit, basePath } /*: { commit: string } */) {
++  return (await exec(`cd ${basePath} && git diff --cached --name-only ${commit}`))
+     .split("\n")
+     .filter(file => !!file);
+ }
+ 
+-async function getUncommitedChanged() {
+-  return (await exec("git diff --name-only"))
++async function getUncommitedChanged(basePath) {
++  return (await exec(`cd ${basePath} && git diff --name-only`))
+     .split("\n")
+     .filter(file => !!file);
+ }
+ 
+-async function getUncommitedCachedChanged() {
++async function getUncommitedCachedChanged(basePath) {
+   return (await exec("git diff --name-only --cached"))
+     .split("\n")
+     .filter(file => !!file);
+ }
+ 
+-async function getUntrackedChanged() {
+-  return (await exec("git ls-files --others --exclude-standard"))
++async function getUntrackedChanged(basePath) {
++  return (await exec(`cd ${basePath} && git ls-files --others --exclude-standard`))
+     .split("\n")
+     .filter(file => !!file);
+ }
+ 
+-async function getChangedFiles({ diffPoint } /*: { diffPoint: DiffPoint }*/) {
++async function getChangedFiles({ diffPoint, basePath } /*: { diffPoint: DiffPoint, basePath?: string }*/) {
+   const { merge, commit } = diffPoint;
+   let changed = [];
+ 
+   if (merge) {
+     // If diff point type is a merge commit – get all changed files in that merge commit
+-    changed = changed.concat(await getChangedFromMerge({ merge }));
+-    changed = changed.concat(await getCachedChangedSince({ commit: merge }));
++    changed = changed.concat(await getChangedFromMerge({ merge, basePath }));
++    changed = changed.concat(await getCachedChangedSince({ commit: merge, basePath }));
+   } else if (commit) {
+     // Default strategy is to just diff against some point in the past
+-    changed = changed.concat(await getCachedChangedSince({ commit }));
++    changed = changed.concat(await getCachedChangedSince({ commit, basePath }));
+   }
+ 
+-  const uncommitted = (await getUncommitedChanged()).concat(
+-    await getUncommitedCachedChanged()
++  const uncommitted = (await getUncommitedChanged(basePath)).concat(
++    await getUncommitedCachedChanged(basePath)
+   );
+-  const untracked = await getUntrackedChanged();
++  const untracked = await getUntrackedChanged(basePath);
+ 
+   changed = changed.concat(uncommitted).concat(untracked);
+ 
+diff --git a/node_modules/get-changed-files/index.js b/node_modules/get-changed-files/index.js
+index b5596e2..b142b7d 100644
+--- a/node_modules/get-changed-files/index.js
++++ b/node_modules/get-changed-files/index.js
+@@ -24,17 +24,18 @@ function createGetDiffPoint(
+ 
+ async function getChanged({
+   mainBranch = "master",
+-  customGetDiffPoint
+-} /*: { mainBranch: string, customGetDiffPoint?: GetDiffPoint } */ = {}) {
++  basePath,
++  customGetDiffPoint,
++} /*: { mainBranch: string, basePath: string, customGetDiffPoint?: GetDiffPoint } */ = {}) {
+   const provider = git;
+ 
+   const getDiffPoint = createGetDiffPoint({
+     customGetDiffPoint,
+     getDiffPoint: provider.getDiffPoint
+   });
+-  const currentBranch = await provider.getCurrentBranch();
++  const currentBranch = await provider.getCurrentBranch(basePath);
+   const diffPoint = await getDiffPoint({ mainBranch, currentBranch });
+-  return await provider.getChangedFiles({ diffPoint });
++  return await provider.getChangedFiles({ diffPoint, basePath });
+ }
+ 
+ module.exports = getChanged;
